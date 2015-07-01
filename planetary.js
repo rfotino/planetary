@@ -1,6 +1,6 @@
 var Planetary = { };
 
-Planetary.PLAYER_SPEED = 0.025;
+Planetary.PLAYER_SPEED = 0.035;
 Planetary.PLAYER_JUMP = 12.5;
 Planetary.PLAYER_ANGULAR_ACCELERATION = 0.001;
 Planetary.PLANET_GRAVITY = -1;
@@ -20,9 +20,12 @@ Planetary.Player = function(game) {
     this._radialVelocity = 0;
     this._landed = false;
     this._falling = false;
+    this._direction = 'right';
 
     this.sprite = this.game.add.sprite(0, 0, 'spaceman');
     this.sprite.anchor.setTo(0.5, 0.5);
+    this.sprite.animations.add('left', [4, 5, 6, 7], 10, true);
+    this.sprite.animations.add('right', [0, 1, 2, 3], 10, true);
 
     this._updatePosition();
 };
@@ -96,6 +99,8 @@ Planetary.Player.prototype = {
         this._updatePosition();
     },
     moveLeft: function() {
+        this.sprite.animations.play('left');
+        this._direction = 'left';
         this._angularVelocity = -Planetary.PLAYER_SPEED;
         // Allow the player to shed right inertia if they are holding left
         if (0 < this._platformAngularVelocity) {
@@ -106,6 +111,8 @@ Planetary.Player.prototype = {
         }
     },
     moveRight: function() {
+        this.sprite.animations.play('right');
+        this._direction = 'right';
         this._angularVelocity = Planetary.PLAYER_SPEED;
         // Allow the player to shed left inertia if they are holding right
         if (this._platformAngularVelocity < 0) {
@@ -116,6 +123,12 @@ Planetary.Player.prototype = {
         }
     },
     moveClear: function() {
+        this.sprite.animations.stop();
+        if (this._direction === 'left') {
+            this.sprite.frame = 4;
+        } else if (this._direction === 'right') {
+            this.sprite.frame = 0;
+        }
         this._angularVelocity = 0;
     },
     jump: function() {
@@ -292,7 +305,7 @@ Planetary.Game = function(width, height, container) {
 Planetary.Game.prototype = {
     preload: function() {
         this.load.image('planet', 'assets/planet.png');
-        this.load.image('spaceman', 'assets/spaceman.png');
+        this.load.spritesheet('spaceman', 'assets/spaceman.png', 18, 32);
         this.load.image('star', 'assets/star.png');
     },
 
