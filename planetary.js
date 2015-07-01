@@ -180,8 +180,27 @@ Planetary.Platform.prototype = {
             this.angle -= Math.PI * 2;
         }
         this.graphics.clear();
-        this.graphics.lineStyle(this.thickness, 0xffffff);
+        // Draw fill
+        this.graphics.lineStyle(this.thickness, 0x333333);
         this.graphics.arc(0, 0, this.height - (this.thickness / 2),
+                          this.angle - (Math.PI / 2),
+                          this.angle + this.width - (Math.PI / 2));
+        // Draw top outline
+        this.graphics.lineStyle(2, 0x666666);
+        this.graphics.moveTo(this.height * Math.sin(this.angle),
+                             this.height * -Math.cos(this.angle));
+        this.graphics.lineTo((this.height - this.thickness) * Math.sin(this.angle),
+                             (this.height - this.thickness) * -Math.cos(this.angle));
+        this.graphics.moveTo(this.height * Math.sin(this.angle + this.width),
+                             this.height * -Math.cos(this.angle + this.width));
+        this.graphics.lineTo((this.height - this.thickness) * Math.sin(this.angle + this.width),
+                             (this.height - this.thickness) * -Math.cos(this.angle + this.width));
+        this.graphics.arc(0, 0, this.height,
+                          this.angle - (Math.PI / 2),
+                          this.angle + this.width - (Math.PI / 2));
+        // Draw bottom outline
+        this.graphics.lineColor = 0x222222;
+        this.graphics.arc(0, 0, this.height - this.thickness,
                           this.angle - (Math.PI / 2),
                           this.angle + this.width - (Math.PI / 2));
     }
