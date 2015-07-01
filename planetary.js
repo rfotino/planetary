@@ -2,6 +2,7 @@ var Planetary = { };
 
 Planetary.PLAYER_SPEED = 0.025;
 Planetary.PLAYER_JUMP = 12.5;
+Planetary.PLAYER_ANGULAR_ACCELERATION = 0.001;
 Planetary.PLANET_GRAVITY = -1;
 Planetary.PLAYER_MIN_SPEED = -5;
 
@@ -54,10 +55,15 @@ Planetary.Player.prototype = {
         if (!this._falling) {
             for (var i = 0; i < this.game.platforms.platformArray.length; i++) {
                 var platform = this.game.platforms.platformArray[i];
-                if ((platform.angle <= this._angle &&
-                     this._angle <= platform.angle + platform.width) ||
-                    (platform.angle <= this._angle + (Math.PI * 2) &&
-                     this._angle + (Math.PI * 2) <= platform.angle + platform.width)) {
+                var halfPlayerAngle = this.sprite.width / (2 * this._radius);
+                var platformStartAngle = platform.angle - halfPlayerAngle;
+                var platformEndAngle = platform.angle + platform.width + halfPlayerAngle;
+                if ((platformStartAngle <= this._angle - (Math.PI * 2) &&
+                     this._angle - (Math.PI * 2) <= platformEndAngle) ||
+                    (platformStartAngle <= this._angle &&
+                     this._angle <= platformEndAngle) ||
+                    (platformStartAngle <= this._angle + (Math.PI * 2) &&
+                     this._angle + (Math.PI * 2) <= platformEndAngle)) {
                     if (platform.height <= prevBottom &&
                         bottom < platform.height) {
                         this._landedAt(platform.height + halfHeight,
@@ -91,9 +97,23 @@ Planetary.Player.prototype = {
     },
     moveLeft: function() {
         this._angularVelocity = -Planetary.PLAYER_SPEED;
+        // Allow the player to shed right inertia if they are holding left
+        if (0 < this._platformAngularVelocity) {
+            this._platformAngularVelocity -= Planetary.PLAYER_ANGULAR_ACCELERATION;
+            if (this._platformAngularVelocity < 0) {
+                this._platformAngularVelocity = 0;
+            }
+        }
     },
     moveRight: function() {
         this._angularVelocity = Planetary.PLAYER_SPEED;
+        // Allow the player to shed left inertia if they are holding right
+        if (this._platformAngularVelocity < 0) {
+            this._platformAngularVelocity += Planetary.PLAYER_ANGULAR_ACCELERATION;
+            if (0 < this._platformAngularVelocity) {
+                this._platformAngularVelocity = 0;
+            }
+        }
     },
     moveClear: function() {
         this._angularVelocity = 0;
