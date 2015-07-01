@@ -253,6 +253,9 @@ Planetary.Game.prototype = {
         this.platforms.add(Math.PI / 6, Math.PI / 3, 185, 10, 0.01);
         this.platforms.add(Math.PI / 3, Math.PI / 3, 215, 10, 0.005);
         this.platforms.add(Math.PI / 2, Math.PI / 3, 245, 10, -0.01);
+
+        this.game.scale.fullScreenScaleMode = Phaser.ScaleManager.NO_SCALE;
+        this.game.input.onDown.add(function() { this.scale.startFullScreen(false); }, this);
     },
 
     update: function() {
