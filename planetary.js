@@ -79,12 +79,7 @@ Planetary.Player.prototype = {
         // walls at this point
         this._angle += this._angularVelocity * this.game.planet.radius / this._radius;
         this._angle += this._platformAngularVelocity;
-        while (this._angle < 0) {
-            this._angle += Math.PI * 2;
-        }
-        while (this._angle > Math.PI * 2) {
-            this._angle -= Math.PI * 2;
-        }
+        this._angle = Phaser.Math.normalizeAngle(this._angle);
     },
     _updatePosition: function() {
         // Translate polar coordinates to Cartesian coordinates
@@ -209,12 +204,7 @@ Planetary.Platform = function(game, angle, width,
 Planetary.Platform.prototype = {
     update: function() {
         this.angle += this.angularVelocity;
-        while (this.angle < 0) {
-            this.angle += Math.PI * 2;
-        }
-        while (this.angle > Math.PI * 2) {
-            this.angle -= Math.PI * 2;
-        }
+        this.angle = Phaser.Math.normalizeAngle(this.angle);
         this.graphics.rotation = this.angle;
     }
 };
@@ -256,6 +246,19 @@ Planetary.StarGroup = function(game, numStars) {
         var size = Math.pow(this.game.rnd.frac(), 2) / 2;
         star.scale.setTo(size, size);
     }
+};
+
+Planetary.City = function(game, angle) {
+    this.game = game;
+    this.angle = angle;
+    var cityImage = this.game.cache.getImage('city');
+    var planetImage = this.game.cache.getImage('planet');
+    var radius = (planetImage.height / 2) + (cityImage.height / 2) - 2;
+    var posX = (this.game.world.width / 2) + (radius * Math.sin(this.angle));
+    var posY = (this.game.world.height / 2) + (radius * -Math.cos(this.angle));
+    this.sprite = this.game.add.sprite(posX, posY, 'city');
+    this.sprite.anchor.setTo(0.5, 0.5);
+    this.sprite.rotation = this.angle;
 };
 
 Planetary.Input = function(game) {
@@ -307,15 +310,20 @@ Planetary.Game.prototype = {
         this.load.image('planet', 'assets/planet.png');
         this.load.spritesheet('spaceman', 'assets/spaceman.png', 18, 32);
         this.load.image('star', 'assets/star.png');
+        this.load.spritesheet('city', 'assets/city.png', 56, 50);
     },
 
     create: function() {
         this.stars = new Planetary.StarGroup(this, 250);
+        this.cities = [];
+        for (var i = 0; i < 3; i++) {
+            var cityAngle = Phaser.Math.normalizeAngle(2 * Math.PI * (i / 3) + 0.5);
+            this.cities.push(new Planetary.City(this, cityAngle));
+        }
         this.planet = new Planetary.Planet(this);
         this.player = new Planetary.Player(this);
         this.inputHandler = new Planetary.Input(this);
         this.platforms = new Planetary.PlatformCluster(this);
-        this.platforms.add(0, Math.PI / 3, 155, 10, 0.02);
         this.platforms.add(Math.PI / 6, Math.PI / 3, 185, 10, 0.01);
         this.platforms.add(Math.PI / 3, Math.PI / 3, 215, 10, 0.005);
         this.platforms.add(Math.PI / 2, Math.PI / 3, 245, 10, -0.01);
