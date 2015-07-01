@@ -194,6 +194,18 @@ Planetary.PlatformCluster.prototype = {
     }
 };
 
+Planetary.StarGroup = function(game, numStars) {
+    this.game = game;
+    this.group = this.game.add.group();
+    for (var i = 0; i < numStars; i++) {
+        var star = this.group.create(this.game.rnd.between(0, this.game.world.width),
+                                     this.game.rnd.between(0, this.game.world.height),
+                                     'star');
+        var size = Math.pow(this.game.rnd.frac(), 2) / 2;
+        star.scale.setTo(size, size);
+    }
+};
+
 Planetary.Input = function(game) {
     this.game = game;
     this.cursors = this.game.input.keyboard.createCursorKeys();
@@ -242,9 +254,11 @@ Planetary.Game.prototype = {
     preload: function() {
         this.load.image('planet', 'assets/planet.png');
         this.load.image('spaceman', 'assets/spaceman.png');
+        this.load.image('star', 'assets/star.png');
     },
 
     create: function() {
+        this.stars = new Planetary.StarGroup(this, 250);
         this.planet = new Planetary.Planet(this);
         this.player = new Planetary.Player(this);
         this.inputHandler = new Planetary.Input(this);
