@@ -32,7 +32,8 @@ Planetary.Player = function(game) {
         new Planetary.Rifle(this.game, this)
     ];
     this._currentWeaponIndex = 0;
-    this.sprite.addChild(this._weapons[0].sprite);
+    this.changeWeaponTo(this._currentWeaponIndex);
+    this.strafing = false;
 
     this._updatePosition();
 };
@@ -101,7 +102,9 @@ Planetary.Player.prototype = {
     },
     moveLeft: function() {
         this.sprite.animations.play('left');
-        this.direction = 'left';
+        if (!this.strafing) {
+            this.direction = 'left';
+        }
         this._angularVelocity = -Planetary.PLAYER_SPEED;
         // Allow the player to shed right inertia if they are holding left
         if (0 < this._platformAngularVelocity) {
@@ -113,7 +116,9 @@ Planetary.Player.prototype = {
     },
     moveRight: function() {
         this.sprite.animations.play('right');
-        this.direction = 'right';
+        if (!this.strafing) {
+            this.direction = 'right';
+        }
         this._angularVelocity = Planetary.PLAYER_SPEED;
         // Allow the player to shed left inertia if they are holding right
         if (this._platformAngularVelocity < 0) {
@@ -151,9 +156,17 @@ Planetary.Player.prototype = {
         this._weapons[this._currentWeaponIndex].shoot();
     },
     changeWeaponTo: function(index) {
-        this.sprite.removeChild(this._weapons[this._currentWeaponIndex].sprite);
         this._currentWeaponIndex = index % this._weapons.length;
-        this.sprite.addChild(this._weapons[this._currentWeaponIndex].sprite);
+        for (var i = 0; i < this._weapons.length; i++) {
+            var weapon = this._weapons[i];
+            if (i === this._currentWeaponIndex) {
+                weapon.sprite.visible = true;
+                this.sprite.addChild(weapon.sprite);
+            } else {
+                weapon.sprite.visible = false;
+                this.sprite.removeChild(weapon.sprite);
+            }
+        }
     },
     changeWeapon: function() {
         this.changeWeaponTo(this._currentWeaponIndex + 1);
@@ -416,6 +429,7 @@ Planetary.Input = function(game) {
     this.cursors = this.game.input.keyboard.createCursorKeys();
     this.cursorUpArrowPrev = false;
     this.spacebar = this.game.input.keyboard.addKey(Phaser.Keyboard.SPACEBAR);
+    this.strafeKey = this.game.input.keyboard.addKey(Phaser.Keyboard.SHIFT);
     this.xKey = this.game.input.keyboard.addKey(Phaser.Keyboard.X);
     this.xKeyDownPrev = false;
 };
@@ -450,6 +464,8 @@ Planetary.Input.prototype = {
             this.game.player.changeWeapon();
         }
         this.xKeyDownPrev = this.xKey.isDown;
+        // Check for strafing
+        this.game.player.strafing = this.strafeKey.isDown;
     }
 };
 
