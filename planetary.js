@@ -162,6 +162,8 @@ Planetary.Planet.prototype = {
     update: function() {
         this._angle += this.angularVelocity;
         this.sprite.rotation = this._angle;
+        this.sprite.x = this.game.world.width / 2;
+        this.sprite.y = this.game.world.height / 2;
     }
 };
 
@@ -173,9 +175,7 @@ Planetary.Platform = function(game, angle, width,
     this.height = height;
     this.thickness = thickness;
     this.angularVelocity = angularVelocity;
-    this.graphics = this.game.add.graphics(this.game.world.width / 2,
-                                           this.game.world.height / 2,
-                                           this.game.platforms.group);
+    this.graphics = this.game.add.graphics(0, 0, this.game.platforms.group);
     // Draw fill
     this.graphics.lineStyle(this.thickness, 0x333333);
     this.graphics.arc(0, 0, this.height - (this.thickness / 2),
@@ -239,12 +239,21 @@ Planetary.PlatformCluster.prototype = {
 Planetary.StarGroup = function(game, numStars) {
     this.game = game;
     this.group = this.game.add.group();
-    for (var i = 0; i < numStars; i++) {
-        var star = this.group.create(this.game.rnd.between(0, this.game.world.width),
-                                     this.game.rnd.between(0, this.game.world.height),
-                                     'star');
-        var size = Math.pow(this.game.rnd.frac(), 2) / 2;
-        star.scale.setTo(size, size);
+    this.starDensity = numStars / (this.game.world.width * this.game.world.height);
+    this.reset();
+};
+
+Planetary.StarGroup.prototype = {
+    reset: function() {
+        this.group.removeAll();
+        var numStars = this.starDensity * this.game.world.width * this.game.world.height;
+        for (var i = 0; i < numStars; i++) {
+            var star = this.group.create(this.game.rnd.between(0, this.game.world.width),
+                                         this.game.rnd.between(0, this.game.world.height),
+                                         'star');
+            var size = Math.pow(this.game.rnd.frac(), 2) / 2;
+            star.scale.setTo(size, size);
+        }
     }
 };
 
@@ -254,9 +263,9 @@ Planetary.City = function(game, angle) {
     var cityImage = this.game.cache.getImage('city');
     var planetImage = this.game.cache.getImage('planet');
     var radius = (planetImage.height / 2) + (cityImage.height / 2) - 2;
-    var posX = (this.game.world.width / 2) + (radius * Math.sin(this.angle));
-    var posY = (this.game.world.height / 2) + (radius * -Math.cos(this.angle));
-    this.sprite = this.game.add.sprite(posX, posY, 'city');
+    var posX = radius * Math.sin(this.angle);
+    var posY = radius * -Math.cos(this.angle);
+    this.sprite = this.game.cityGroup.create(posX, posY, 'city');
     this.sprite.anchor.setTo(0.5, 0.5);
     this.sprite.rotation = this.angle;
 };
@@ -311,10 +320,15 @@ Planetary.Game.prototype = {
         this.load.spritesheet('spaceman', 'assets/spaceman.png', 18, 32);
         this.load.image('star', 'assets/star.png');
         this.load.spritesheet('city', 'assets/city.png', 56, 50);
+        this.load.image('pistol', 'assets/pistol.png');
+        this.load.image('rifle', 'assets/rifle.png');
+        this.load.image('bullet', 'assets/bullet.png');
+        this.load.image('flash', 'assets/flash.png');
     },
 
     create: function() {
         this.stars = new Planetary.StarGroup(this, 250);
+        this.cityGroup = this.add.group();
         this.cities = [];
         for (var i = 0; i < 3; i++) {
             var cityAngle = Phaser.Math.normalizeAngle(2 * Math.PI * (i / 3) + 0.5);
@@ -328,7 +342,11 @@ Planetary.Game.prototype = {
         this.platforms.add(Math.PI / 3, Math.PI / 3, 215, 10, 0.005);
         this.platforms.add(Math.PI / 2, Math.PI / 3, 245, 10, -0.01);
 
-        this.game.scale.fullScreenScaleMode = Phaser.ScaleManager.NO_SCALE;
+        this.planet.sprite.addChild(this.cityGroup);
+        this.planet.sprite.addChild(this.platforms.group);
+
+        this.game.scale.fullScreenScaleMode = Phaser.ScaleManager.RESIZE;
+        this.game.scale.onSizeChange.add(function() { this.stars.reset(); }, this);
         this.game.input.onDown.add(function() { this.scale.startFullScreen(false); }, this);
     },
 
