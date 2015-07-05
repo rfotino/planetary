@@ -207,6 +207,7 @@ Planetary.Weapon.prototype = {
             return;
         }
         this.addBullet();
+        this.sprite.animations.play('shoot');
         this.cooldown = this.cooldownMax;
     },
     addBullet: function() { }
@@ -215,8 +216,9 @@ Planetary.Weapon.prototype = {
 Planetary.Pistol = function(game, player) {
     this.game = game;
     this.player = player;
-    this.offset = new Phaser.Point(0, -2);
+    this.offset = new Phaser.Point(-2, -2);
     this.sprite = this.game.add.sprite(this.offset.x, this.offset.y, 'pistol');
+    this.sprite.animations.add('shoot', [1, 0], 15, false);
     this.cooldownMax = 15;
     this.cooldown = 0;
     this.damage = 5;
@@ -235,8 +237,9 @@ Planetary.Pistol.prototype.addBullet = function() {
 Planetary.Rifle = function(game, player) {
     this.game = game;
     this.player = player;
-    this.offset = new Phaser.Point(0, -2);
+    this.offset = new Phaser.Point(-2, -2);
     this.sprite = this.game.add.sprite(this.offset.x, this.offset.y, 'rifle');
+    this.sprite.animations.add('shoot', [1, 0], 30, false);
     this.cooldownMax = 5;
     this.cooldown = 0;
     this.damage = 2;
@@ -244,10 +247,11 @@ Planetary.Rifle = function(game, player) {
 };
 Planetary.Rifle.prototype = Object.create(Planetary.Weapon.prototype);
 Planetary.Rifle.prototype.addBullet = function() {
+    var angle = this.player.sprite.rotation + ((this.game.rnd.frac() - 0.5) * 0.1);
     this.game.bullets.add(this.player,
                           this.damage,
                           this.player.sprite.position,
-                          this.player.sprite.rotation,
+                          angle,
                           this.bulletSpeed,
                           this.player.direction);
 };
@@ -494,13 +498,12 @@ Planetary.Game = function(width, height, container) {
 Planetary.Game.prototype = {
     preload: function() {
         this.load.image('planet', 'assets/planet.png');
-        this.load.spritesheet('spaceman', 'assets/spaceman.png', 18, 32);
         this.load.image('star', 'assets/star.png');
-        this.load.spritesheet('city', 'assets/city.png', 56, 50);
-        this.load.image('pistol', 'assets/pistol.png');
-        this.load.image('rifle', 'assets/rifle.png');
         this.load.image('bullet', 'assets/bullet.png');
-        this.load.image('flash', 'assets/flash.png');
+        this.load.spritesheet('pistol', 'assets/pistol.png', 10, 6);
+        this.load.spritesheet('spaceman', 'assets/spaceman.png', 18, 32);
+        this.load.spritesheet('city', 'assets/city.png', 56, 50);
+        this.load.spritesheet('rifle', 'assets/rifle.png', 19, 7);
     },
 
     create: function() {
