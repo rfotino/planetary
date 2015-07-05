@@ -101,9 +101,13 @@ Planetary.Player.prototype = {
         this._weapons[this._currentWeaponIndex].update(this.direction);
     },
     moveLeft: function() {
-        this.sprite.animations.play('left');
         if (!this.strafing) {
             this.direction = 'left';
+        }
+        if (this.direction === 'left') {
+            this.sprite.animations.play('left');
+        } else if (this.direction === 'right') {
+            this.sprite.animations.play('right');
         }
         this._angularVelocity = -Planetary.PLAYER_SPEED;
         // Allow the player to shed right inertia if they are holding left
@@ -115,9 +119,13 @@ Planetary.Player.prototype = {
         }
     },
     moveRight: function() {
-        this.sprite.animations.play('right');
         if (!this.strafing) {
             this.direction = 'right';
+        }
+        if (this.direction === 'left') {
+            this.sprite.animations.play('left');
+        } else if (this.direction === 'right') {
+            this.sprite.animations.play('right');
         }
         this._angularVelocity = Planetary.PLAYER_SPEED;
         // Allow the player to shed left inertia if they are holding right
