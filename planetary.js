@@ -20,12 +20,19 @@ Planetary.Player = function(game) {
     this._radialVelocity = 0;
     this._landed = false;
     this._falling = false;
-    this._direction = 'right';
+    this.direction = 'right';
 
     this.sprite = this.game.add.sprite(0, 0, 'spaceman');
     this.sprite.anchor.setTo(0.5, 0.5);
     this.sprite.animations.add('left', [4, 5, 6, 7], 10, true);
     this.sprite.animations.add('right', [0, 1, 2, 3], 10, true);
+
+    this._weapons = [
+        new Planetary.Pistol(this.game, this),
+        new Planetary.Rifle(this.game, this)
+    ];
+    this._currentWeaponIndex = 0;
+    this.sprite.addChild(this._weapons[0].sprite);
 
     this._updatePosition();
 };
@@ -83,19 +90,18 @@ Planetary.Player.prototype = {
     },
     _updatePosition: function() {
         // Translate polar coordinates to Cartesian coordinates
-        this.sprite.x = (this.game.world.width / 2) +
-                        (this._radius * Math.sin(this._angle));
-        this.sprite.y = (this.game.world.height / 2) +
-                        (this._radius * -Math.cos(this._angle));
+        this.sprite.x = this._radius * Math.sin(this._angle);
+        this.sprite.y = this._radius * -Math.cos(this._angle);
         this.sprite.rotation = this._angle;
     },
     update: function() {
         this._updateMovement();
         this._updatePosition();
+        this._weapons[this._currentWeaponIndex].update(this.direction);
     },
     moveLeft: function() {
         this.sprite.animations.play('left');
-        this._direction = 'left';
+        this.direction = 'left';
         this._angularVelocity = -Planetary.PLAYER_SPEED;
         // Allow the player to shed right inertia if they are holding left
         if (0 < this._platformAngularVelocity) {
@@ -107,7 +113,7 @@ Planetary.Player.prototype = {
     },
     moveRight: function() {
         this.sprite.animations.play('right');
-        this._direction = 'right';
+        this.direction = 'right';
         this._angularVelocity = Planetary.PLAYER_SPEED;
         // Allow the player to shed left inertia if they are holding right
         if (this._platformAngularVelocity < 0) {
@@ -119,9 +125,9 @@ Planetary.Player.prototype = {
     },
     moveClear: function() {
         this.sprite.animations.stop();
-        if (this._direction === 'left') {
+        if (this.direction === 'left') {
             this.sprite.frame = 4;
-        } else if (this._direction === 'right') {
+        } else if (this.direction === 'right') {
             this.sprite.frame = 0;
         }
         this._angularVelocity = 0;
@@ -140,6 +146,141 @@ Planetary.Player.prototype = {
     },
     fallStop: function() {
         this._falling = false;
+    },
+    shoot: function() {
+        this._weapons[this._currentWeaponIndex].shoot();
+    },
+    changeWeaponTo: function(index) {
+        this.sprite.removeChild(this._weapons[this._currentWeaponIndex].sprite);
+        this._currentWeaponIndex = index % this._weapons.length;
+        this.sprite.addChild(this._weapons[this._currentWeaponIndex].sprite);
+    },
+    changeWeapon: function() {
+        this.changeWeaponTo(this._currentWeaponIndex + 1);
+    }
+};
+
+Planetary.Weapon = function(game, player) {
+    this.game = game;
+    this.player = player;
+};
+
+Planetary.Weapon.prototype = {
+    update: function(direction) {
+        if (direction === 'left') {
+            this.sprite.scale.setTo(-1, 1);
+        } else if (direction === 'right') {
+            this.sprite.scale.setTo(1, 1);
+        }
+        if (this.cooldown > 0) {
+            this.cooldown--;
+        }
+        this.sprite.x = this.offset.x;
+        this.sprite.y = this.offset.y;
+        if ([ 1, 3, 5, 7 ].indexOf(this.player.sprite.frame) !== -1) {
+            this.sprite.y += 2;
+        }
+    },
+    shoot: function() {
+        if (this.cooldown > 0) {
+            return;
+        }
+        this.addBullet();
+        this.cooldown = this.cooldownMax;
+    },
+    addBullet: function() { }
+};
+
+Planetary.Pistol = function(game, player) {
+    this.game = game;
+    this.player = player;
+    this.offset = new Phaser.Point(0, -2);
+    this.sprite = this.game.add.sprite(this.offset.x, this.offset.y, 'pistol');
+    this.cooldownMax = 15;
+    this.cooldown = 0;
+    this.damage = 5;
+    this.bulletSpeed = 10;
+};
+Planetary.Pistol.prototype = Object.create(Planetary.Weapon.prototype);
+Planetary.Pistol.prototype.addBullet = function() {
+    this.game.bullets.add(this.player,
+                          this.damage,
+                          this.player.sprite.position,
+                          this.player.sprite.rotation,
+                          this.bulletSpeed,
+                          this.player.direction);
+};
+
+Planetary.Rifle = function(game, player) {
+    this.game = game;
+    this.player = player;
+    this.offset = new Phaser.Point(0, -2);
+    this.sprite = this.game.add.sprite(this.offset.x, this.offset.y, 'rifle');
+    this.cooldownMax = 5;
+    this.cooldown = 0;
+    this.damage = 2;
+    this.bulletSpeed = 10;
+};
+Planetary.Rifle.prototype = Object.create(Planetary.Weapon.prototype);
+Planetary.Rifle.prototype.addBullet = function() {
+    this.game.bullets.add(this.player,
+                          this.damage,
+                          this.player.sprite.position,
+                          this.player.sprite.rotation,
+                          this.bulletSpeed,
+                          this.player.direction);
+};
+
+Planetary.BulletCluster = function(game) {
+    this.game = game;
+    this.group = this.game.add.group()
+    this.bulletArray = [];
+};
+
+Planetary.BulletCluster.prototype = {
+    add: function(owner, damage, position, angle, speed, direction) {
+        var bullet = new Planetary.Bullet(this.game, owner, damage, position, angle, speed, direction);
+        this.group.add(bullet.sprite);
+        this.bulletArray.push(bullet);
+    },
+    update: function() {
+        for (var i = this.bulletArray.length - 1; i >= 0; i--) {
+            this.bulletArray[i].update();
+            if (!this.bulletArray[i].alive) {
+                this.bulletArray.splice(i, 1);
+            }
+        }
+    }
+};
+
+Planetary.Bullet = function(game, owner, damage, position, angle, speed, direction) {
+    if (direction === 'left') {
+        angle += Math.PI;
+    }
+    this.game = game;
+    this.owner = owner;
+    this.damage = damage;
+    this.sprite = this.game.add.sprite(position.x, position.y, 'bullet');
+    this.sprite.x = position.x;
+    this.sprite.y = position.y;
+    this.sprite.rotation = angle;
+    this.velocity = new Phaser.Point(
+        speed * Math.cos(angle),
+        speed * Math.sin(angle)
+    );
+    this._timeToLive = 150;
+    this.alive = true;
+};
+
+Planetary.Bullet.prototype = {
+    update: function() {
+        this.sprite.x += this.velocity.x;
+        this.sprite.y += this.velocity.y;
+        this._timeToLive--;
+        if (this._timeToLive === 0) {
+            this.sprite.destroy();
+            this.alive = false;
+        }
     }
 };
 
@@ -236,10 +377,10 @@ Planetary.PlatformCluster.prototype = {
     }
 };
 
-Planetary.StarGroup = function(game, numStars) {
+Planetary.StarGroup = function(game, starDensity) {
     this.game = game;
     this.group = this.game.add.group();
-    this.starDensity = numStars / (this.game.world.width * this.game.world.height);
+    this.starDensity = starDensity;
     this.reset();
 };
 
@@ -274,6 +415,9 @@ Planetary.Input = function(game) {
     this.game = game;
     this.cursors = this.game.input.keyboard.createCursorKeys();
     this.cursorUpArrowPrev = false;
+    this.spacebar = this.game.input.keyboard.addKey(Phaser.Keyboard.SPACEBAR);
+    this.xKey = this.game.input.keyboard.addKey(Phaser.Keyboard.X);
+    this.xKeyDownPrev = false;
 };
 
 Planetary.Input.prototype = {
@@ -297,6 +441,15 @@ Planetary.Input.prototype = {
         } else {
             this.game.player.fallStop();
         }
+        // Check for shoot
+        if (this.spacebar.isDown) {
+            this.game.player.shoot();
+        }
+        // Check for swap weapon
+        if (this.xKey.isDown && !this.xKeyDownPrev) {
+            this.game.player.changeWeapon();
+        }
+        this.xKeyDownPrev = this.xKey.isDown;
     }
 };
 
@@ -327,7 +480,7 @@ Planetary.Game.prototype = {
     },
 
     create: function() {
-        this.stars = new Planetary.StarGroup(this, 250);
+        this.stars = new Planetary.StarGroup(this, 250 / (600 * 800));
         this.cityGroup = this.add.group();
         this.cities = [];
         for (var i = 0; i < 3; i++) {
@@ -341,9 +494,12 @@ Planetary.Game.prototype = {
         this.platforms.add(Math.PI / 6, Math.PI / 3, 185, 10, 0.01);
         this.platforms.add(Math.PI / 3, Math.PI / 3, 215, 10, 0.005);
         this.platforms.add(Math.PI / 2, Math.PI / 3, 245, 10, -0.01);
+        this.bullets = new Planetary.BulletCluster(this);
 
         this.planet.sprite.addChild(this.cityGroup);
         this.planet.sprite.addChild(this.platforms.group);
+        this.planet.sprite.addChild(this.bullets.group);
+        this.planet.sprite.addChild(this.player.sprite);
 
         this.game.scale.fullScreenScaleMode = Phaser.ScaleManager.RESIZE;
         this.game.scale.onSizeChange.add(function() { this.stars.reset(); }, this);
@@ -355,6 +511,7 @@ Planetary.Game.prototype = {
         this.player.update();
         this.planet.update();
         this.platforms.update();
+        this.bullets.update();
         this.world.bringToTop(this.player.sprite);
     }
 };
