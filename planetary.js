@@ -406,20 +406,22 @@ Planetary.StarGroup = function(game, starDensity) {
     this.game = game;
     this.group = this.game.add.group();
     this.starDensity = starDensity;
-    this.reset();
+    var numStars = this.starDensity * screen.width * screen.height;
+    var halfWidth = screen.width / 2;
+    var halfHeight = screen.height / 2;
+    for (var i = 0; i < numStars; i++) {
+        var star = this.group.create(this.game.rnd.between(-halfWidth, halfWidth),
+                                     this.game.rnd.between(-halfHeight, halfHeight),
+                                     'star');
+        var size = Math.pow(this.game.rnd.frac(), 2) / 2;
+        star.scale.setTo(size, size);
+    }
 };
 
 Planetary.StarGroup.prototype = {
-    reset: function() {
-        this.group.removeAll();
-        var numStars = this.starDensity * this.game.world.width * this.game.world.height;
-        for (var i = 0; i < numStars; i++) {
-            var star = this.group.create(this.game.rnd.between(0, this.game.world.width),
-                                         this.game.rnd.between(0, this.game.world.height),
-                                         'star');
-            var size = Math.pow(this.game.rnd.frac(), 2) / 2;
-            star.scale.setTo(size, size);
-        }
+    update: function() {
+        this.group.x = this.game.planet.sprite.x;
+        this.group.y = this.game.planet.sprite.y;
     }
 };
 
@@ -529,7 +531,6 @@ Planetary.Game.prototype = {
         this.planet.sprite.addChild(this.player.sprite);
 
         this.game.scale.fullScreenScaleMode = Phaser.ScaleManager.RESIZE;
-        this.game.scale.onSizeChange.add(function() { this.stars.reset(); }, this);
         this.game.input.onDown.add(function() { this.scale.startFullScreen(false); }, this);
     },
 
@@ -539,6 +540,7 @@ Planetary.Game.prototype = {
         this.planet.update();
         this.platforms.update();
         this.bullets.update();
+        this.stars.update();
         this.world.bringToTop(this.player.sprite);
     }
 };
