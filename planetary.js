@@ -8,6 +8,8 @@ Planetary.PLAYER_MIN_SPEED = -5;
 Planetary.ROBOT_SPEED = 0.0025;
 Planetary.ROBOT_HEALTH = 20;
 Planetary.ROBOT_POINTS = 100;
+Planetary.SPACESHIP_HEALTH = 75;
+Planetary.SPACESHIP_POINTS = 750;
 
 Planetary.Player = function(game) {
     this.game = game;
@@ -303,6 +305,27 @@ Planetary.Bullet = function(game, owner, damage, position, angle, speed, directi
 };
 
 Planetary.Bullet.prototype = {
+    collided: function(angle, radius, width, height) {
+        var halfHeight = height / 2;
+        var halfAngle = width / (2 * radius);
+        var minRadius = radius - halfHeight;
+        var maxRadius = radius + halfHeight
+        var minAngle = angle - halfAngle;
+        var maxAngle = angle + halfAngle;
+        var bulletRadius = new Phaser.Point(this.sprite.x, this.sprite.y).getMagnitude();
+        var bulletAngle = Math.atan2(this.sprite.x, -this.sprite.y);
+        bulletAngle = Phaser.Math.normalizeAngle(bulletAngle);
+        if (bulletRadius >= minRadius && bulletRadius <= maxRadius) {
+            var bulletAngle2 = bulletAngle - (2 * Math.PI);
+            var bulletAngle3 = bulletAngle + (2 * Math.PI);
+            if ((bulletAngle >= minAngle && bulletAngle <= maxAngle) ||
+                (bulletAngle2 >= minAngle && bulletAngle2 <= maxAngle) ||
+                (bulletAngle3 >= minAngle && bulletAngle3 <= maxAngle)) {
+                return true;
+            }
+        }
+        return false;
+    },
     update: function() {
         // Update position
         this.sprite.x += this.velocity.x;
@@ -311,26 +334,24 @@ Planetary.Bullet.prototype = {
         // Check for bullet-robot collision
         for (var i = 0; i < this.game.robots.robotArray.length; i++) {
             var robot = this.game.robots.robotArray[i];
-            var halfHeight = robot.sprite.height / 2;
-            var halfAngle = Math.abs(robot.sprite.width) / (2 * robot.radius);
-            var minRadius = robot.radius - halfHeight;
-            var maxRadius = robot.radius + halfHeight
-            var minAngle = robot.angle - halfAngle;
-            var maxAngle = robot.angle + halfAngle;
-            var bulletRadius = new Phaser.Point(this.sprite.x, this.sprite.y).getMagnitude();
-            var bulletAngle = Math.atan2(this.sprite.x, -this.sprite.y);
-            bulletAngle = Phaser.Math.normalizeAngle(bulletAngle);
-            if (bulletRadius >= minRadius && bulletRadius <= maxRadius) {
-                var bulletAngle2 = bulletAngle - (2 * Math.PI);
-                var bulletAngle3 = bulletAngle + (2 * Math.PI);
-                if ((bulletAngle >= minAngle && bulletAngle <= maxAngle) ||
-                    (bulletAngle2 >= minAngle && bulletAngle2 <= maxAngle) ||
-                    (bulletAngle3 >= minAngle && bulletAngle3 <= maxAngle)) {
-                    robot.damage(this);
-                    this.sprite.destroy();
-                    this.alive = false;
-                    return;
-                }
+            if (this.collided(robot.angle, robot.radius,
+                              Math.abs(robot.sprite.width), robot.sprite.height)) {
+                robot.damage(this);
+                this.sprite.destroy();
+                this.alive = false;
+                return;
+            }
+        }
+
+        // Check for bullet-spaceship collision
+        for (var i = 0; i < this.game.spaceships.spaceshipArray.length; i++) {
+            var spaceship = this.game.spaceships.spaceshipArray[i];
+            if (this.collided(spaceship.angle, spaceship.radius,
+                              spaceship.sprite.width, spaceship.sprite.height)) {
+                spaceship.damage(this);
+                this.sprite.destroy();
+                this.alive = false;
+                return;
             }
         }
 
@@ -366,8 +387,12 @@ Planetary.SpaceshipCluster.prototype = {
             this.spawnCooldown = this.spawnCooldownMax;
             this.add(Math.PI * 2 * this.game.rnd.frac());
         }
-        for (var i = 0; i < this.spaceshipArray.length; i++) {
-            this.spaceshipArray[i].update();
+        for (var i = this.spaceshipArray.length - 1; i >= 0; i--) {
+            if (!this.spaceshipArray[i].alive) {
+                this.spaceshipArray.splice(i, 1);
+            } else {
+                this.spaceshipArray[i].update();
+            }
         }
     }
 };
@@ -385,6 +410,9 @@ Planetary.Spaceship = function(game, angle) {
     this.launchCooldownMax = 120;
     this.launchCooldown = this.launchCooldownMax;
     this.launchNum = this.game.rnd.between(1, 5);
+
+    this.health = Planetary.SPACESHIP_HEALTH;
+    this.alive = true;
 
     // Find the starting radius, far enough away that the
     // spaceship is offscreen from any angle
@@ -414,6 +442,15 @@ Planetary.Spaceship = function(game, angle) {
 };
 
 Planetary.Spaceship.prototype = {
+    damage: function(bullet) {
+        this.health -= bullet.damage;
+        this.sprite.alpha = ((this.health / Planetary.SPACESHIP_HEALTH) * 0.75) + 0.25;
+        if (this.health <= 0) {
+            this.game.player.score += Planetary.SPACESHIP_POINTS;
+            this.alive = false;
+            this.sprite.destroy();
+        }
+    },
     launchRobot: function() {
         this.game.robots.add(this.angle, this.radius);
     },
