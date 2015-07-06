@@ -309,6 +309,110 @@ Planetary.Bullet.prototype = {
     }
 };
 
+Planetary.SpaceshipCluster = function(game) {
+    this.game = game;
+    this.group = this.game.add.group();
+    this.spaceshipArray = [];
+
+    this.spawnCooldownMax = 500;
+    this.spawnCooldown = 0;
+};
+
+Planetary.SpaceshipCluster.prototype = {
+    add: function(angle) {
+        var spaceship = new Planetary.Spaceship(this.game, angle);
+        this.group.add(spaceship.sprite);
+        this.spaceshipArray.push(spaceship);
+    },
+    update: function() {
+        if (this.spawnCooldown > 0) {
+            this.spawnCooldown--;
+        } else {
+            this.spawnCooldown = this.spawnCooldownMax;
+            this.add(Math.PI * 2 * this.game.rnd.frac());
+        }
+        for (var i = 0; i < this.spaceshipArray.length; i++) {
+            this.spaceshipArray[i].update();
+        }
+    }
+};
+
+Planetary.Spaceship = function(game, angle) {
+    this.game = game;
+    this.angle = angle;
+    this.startRadius = 1000;
+    this.radius = this.startRadius;
+    this.sprite = this.game.add.sprite(0, 0, 'spaceship');
+    this.sprite.anchor.setTo(0.5, 0.5);
+    this.sprite.rotation = this.angle;
+    this.sprite.animations.add('spin', [0, 1, 2, 3, 4], 30, true);
+    this.sprite.animations.play('spin');
+
+    this.launching = false;
+    this.launchCooldownMax = 120;
+    this.launchCooldown = this.launchCooldownMax;
+    this.launchNum = this.game.rnd.between(1, 5);
+
+    // Find the distance at which we should hover
+    // and shoot/launch robots
+    this.stopRadius = this.game.planet.radius;
+    for (var i = 0; i < this.game.platforms.platformArray.length; i++) {
+        var platform = this.game.platforms.platformArray[i];
+        if (platform.height > this.stopRadius) {
+            this.stopRadius = platform.height;
+        }
+    }
+    this.stopRadius += this.sprite.height / 2;
+    this.stopRadius += 20;
+    // Use tweening to smoothly get the ship within robot
+    // launching distance
+    var tween = this.game.add.tween(this).to({ radius: this.stopRadius },
+                                             2500,
+                                             Phaser.Easing.Cubic.InOut,
+                                             true);
+    tween.onComplete.add(function() { this.launching = true; }, this);
+};
+
+Planetary.Spaceship.prototype = {
+    launchRobot: function() {
+        // TODO: add robot here
+    },
+    update: function() {
+        this.sprite.x = this.radius * Math.sin(this.angle);
+        this.sprite.y = this.radius * -Math.cos(this.angle);
+
+        if (this.launching) {
+            if (this.launchCooldown > 0) {
+                this.launchCooldown--;
+            } else {
+                this.launchCooldown = this.launchCooldownMax;
+                this.launchNum--;
+                this.launchRobot();
+
+                if (this.launchNum === 0) {
+                    this.launching = false;
+                    // Use tweening to disappear
+                    var tween = this.game.add.tween(this).to({ radius: this.startRadius },
+                                                             2500,
+                                                             Phaser.Easing.Cubic.InOut,
+                                                             true);
+                    tween.onComplete.add(this.remove, this);
+                }
+            }
+        }
+    },
+    remove: function() {
+        this.game.spaceships.group.remove(this.sprite);
+        this.sprite.destroy();
+        for (var i = 0; i < this.game.spaceships.spaceshipArray.length; i++) {
+            if (this === this.game.spaceships.spaceshipArray[i]) {
+                this.game.spaceships.spaceshipArray.splice(i, 1);
+                break;
+            }
+        }
+    }
+};
+
 Planetary.Planet = function(game, angularVelocity) {
     if (angularVelocity === undefined) {
         angularVelocity = 0;
@@ -506,6 +610,7 @@ Planetary.Game.prototype = {
         this.load.spritesheet('spaceman', 'assets/spaceman.png', 18, 32);
         this.load.spritesheet('city', 'assets/city.png', 56, 50);
         this.load.spritesheet('rifle', 'assets/rifle.png', 19, 7);
+        this.load.spritesheet('spaceship', 'assets/spaceship.png', 100, 50);
     },
 
     create: function() {
@@ -524,10 +629,12 @@ Planetary.Game.prototype = {
         this.platforms.add(Math.PI / 3, Math.PI / 3, 215, 10, 0.005);
         this.platforms.add(Math.PI / 2, Math.PI / 3, 245, 10, -0.01);
         this.bullets = new Planetary.BulletCluster(this);
+        this.spaceships = new Planetary.SpaceshipCluster(this);
 
         this.planet.sprite.addChild(this.cityGroup);
         this.planet.sprite.addChild(this.platforms.group);
         this.planet.sprite.addChild(this.bullets.group);
+        this.planet.sprite.addChild(this.spaceships.group);
         this.planet.sprite.addChild(this.player.sprite);
 
         this.game.scale.fullScreenScaleMode = Phaser.ScaleManager.RESIZE;
@@ -541,6 +648,7 @@ Planetary.Game.prototype = {
         this.platforms.update();
         this.bullets.update();
         this.stars.update();
+        this.spaceships.update();
         this.world.bringToTop(this.player.sprite);
     }
 };
