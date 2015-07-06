@@ -442,6 +442,7 @@ Planetary.Robot = function(game, angle, radius) {
     this.game = game;
     this.angle = angle;
     this.angularVelocity = 0;
+    this._platformAngularVelocity = 0;
     this.radius = radius;
     this.radialVelocity = 0;
     this.sprite = this.game.add.sprite(this.radius * Math.sin(this.angle),
@@ -466,19 +467,47 @@ Planetary.Robot = function(game, angle, radius) {
 
 Planetary.Robot.prototype = {
     update: function() {
+        var prevRadius = this.radius;
         var minRadius = this.game.planet.radius + (this.sprite.height / 2);
         this.radialVelocity += Planetary.PLANET_GRAVITY;
         if (this.radialVelocity < Planetary.PLAYER_MIN_SPEED) {
             this.radialVelocity = Planetary.PLAYER_MIN_SPEED;
         }
         this.radius += this.radialVelocity;
+        this.angle += this._platformAngularVelocity;
         this.angle += this.angularVelocity * (minRadius / this.radius);
         this.angle = this.game.math.normalizeAngle(this.angle);
+        this._platformAngularVelocity = 0;
 
         // Check for collision with the planet
         if (this.radius < minRadius) {
             this.radius = minRadius;
             this.radialVelocity = 0;
+            this._platformAngularVelocity = this.game.planet.angularVelocity;
+        }
+
+        // Check for robot collision with platforms
+        for (var i = 0; i < this.game.platforms.platformArray.length; i++) {
+            var platform = this.game.platforms.platformArray[i];
+            var halfRobotAngle = this.sprite.width / (2 * this.radius);
+            var platformStartAngle = platform.angle - halfRobotAngle;
+            var platformEndAngle = platform.angle + platform.width + halfRobotAngle;
+            if ((platformStartAngle <= this.angle - (Math.PI * 2) &&
+                 this.angle - (Math.PI * 2) <= platformEndAngle) ||
+                (platformStartAngle <= this.angle &&
+                 this.angle <= platformEndAngle) ||
+                (platformStartAngle <= this.angle + (Math.PI * 2) &&
+                 this.angle + (Math.PI * 2) <= platformEndAngle)) {
+                var halfHeight = this.sprite.height / 2;
+                var bottom = this.radius - halfHeight;
+                var prevBottom = prevRadius - halfHeight;
+                if (platform.height <= prevBottom &&
+                    bottom < platform.height) {
+                    this.radius = platform.height + halfHeight;
+                    this.radialVelocity = 0;
+                    this._platformAngularVelocity = platform.angularVelocity;
+                }
+            }
         }
 
         // Set positions
