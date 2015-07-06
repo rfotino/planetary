@@ -489,7 +489,7 @@ Planetary.Robot.prototype = {
         // Check for robot collision with platforms
         for (var i = 0; i < this.game.platforms.platformArray.length; i++) {
             var platform = this.game.platforms.platformArray[i];
-            var halfRobotAngle = this.sprite.width / (2 * this.radius);
+            var halfRobotAngle = Math.abs(this.sprite.width) / (2 * this.radius);
             var platformStartAngle = platform.angle - halfRobotAngle;
             var platformEndAngle = platform.angle + platform.width + halfRobotAngle;
             if ((platformStartAngle <= this.angle - (Math.PI * 2) &&
