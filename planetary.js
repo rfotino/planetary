@@ -5,6 +5,7 @@ Planetary.PLAYER_JUMP = 12.5;
 Planetary.PLAYER_ANGULAR_ACCELERATION = 0.001;
 Planetary.PLANET_GRAVITY = -1;
 Planetary.PLAYER_MIN_SPEED = -5;
+Planetary.ROBOT_SPEED = 0.0025;
 
 Planetary.Player = function(game) {
     this.game = game;
@@ -380,7 +381,7 @@ Planetary.Spaceship = function(game, angle) {
 
 Planetary.Spaceship.prototype = {
     launchRobot: function() {
-        // TODO: add robot here
+        this.game.robots.add(this.angle, this.radius);
     },
     update: function() {
         this.sprite.x = this.radius * Math.sin(this.angle);
@@ -415,6 +416,90 @@ Planetary.Spaceship.prototype = {
                 break;
             }
         }
+    }
+};
+
+Planetary.RobotCluster = function(game) {
+    this.game = game;
+    this.group = this.game.add.group();
+    this.robotArray = [];
+};
+
+Planetary.RobotCluster.prototype = {
+    add: function(angle, radius) {
+        var robot = new Planetary.Robot(this.game, angle, radius);
+        this.group.add(robot.sprite);
+        this.robotArray.push(robot);
+    },
+    update: function() {
+        for (var i = 0; i < this.robotArray.length; i++) {
+            this.robotArray[i].update();
+        }
+    }
+};
+
+Planetary.Robot = function(game, angle, radius) {
+    this.game = game;
+    this.angle = angle;
+    this.angularVelocity = 0;
+    this.radius = radius;
+    this.radialVelocity = 0;
+    this.sprite = this.game.add.sprite(this.radius * Math.sin(this.angle),
+                                       this.radius * -Math.cos(this.angle),
+                                       'robot');
+    this.sprite.anchor.setTo(0.5, 0.5);
+    this.sprite.rotation = this.angle;
+    this.sprite.animations.add('walk', [0, 1, 2, 3], 2, true);
+    this.sprite.animations.add('attack', [0, 4, 5, 6], 4, true);
+
+    this.attacking = false;
+
+    if (this.game.rnd.frac() < 0.5) {
+        this.walkLeft();
+    } else {
+        this.walkRight();
+    }
+};
+
+Planetary.Robot.prototype = {
+    update: function() {
+        var minRadius = this.game.planet.radius + (this.sprite.height / 2);
+        this.radialVelocity += Planetary.PLANET_GRAVITY;
+        if (this.radialVelocity < Planetary.PLAYER_MIN_SPEED) {
+            this.radialVelocity = Planetary.PLAYER_MIN_SPEED;
+        }
+        this.radius += this.radialVelocity;
+        this.angle += this.angularVelocity * (minRadius / this.radius);
+        this.angle = this.game.math.normalizeAngle(this.angle);
+
+        // Check for collision with the planet
+        if (this.radius < minRadius) {
+            this.radius = minRadius;
+            this.radialVelocity = 0;
+        }
+
+        // Set positions
+        this.sprite.x = this.radius * Math.sin(this.angle);
+        this.sprite.y = this.radius * -Math.cos(this.angle);
+        this.sprite.rotation = this.angle;
+    },
+    walkLeft: function() {
+        this.sprite.animations.play('walk');
+        this.sprite.scale.setTo(-1, 1);
+        this.angularVelocity = -Planetary.ROBOT_SPEED;
+    },
+    walkRight: function() {
+        this.sprite.animations.play('walk');
+        this.sprite.scale.setTo(1, 1);
+        this.angularVelocity = Planetary.ROBOT_SPEED;
+    },
+    stop: function() {
+        this.attacking = false;
+        this.sprite.animations.stop();
+    },
+    attack: function() {
+        this.attacking = true;
+        this.sprite.animations.play('attack');
     }
 };
 
@@ -616,6 +701,7 @@ Planetary.Game.prototype = {
         this.load.spritesheet('city', 'assets/city.png', 56, 50);
         this.load.spritesheet('rifle', 'assets/rifle.png', 19, 7);
         this.load.spritesheet('spaceship', 'assets/spaceship.png', 100, 50);
+        this.load.spritesheet('robot', 'assets/robot.png', 52, 56);
     },
 
     create: function() {
@@ -634,11 +720,13 @@ Planetary.Game.prototype = {
         this.platforms.add(Math.PI / 3, Math.PI / 3, 215, 10, 0.005);
         this.platforms.add(Math.PI / 2, Math.PI / 3, 245, 10, -0.01);
         this.bullets = new Planetary.BulletCluster(this);
+        this.robots = new Planetary.RobotCluster(this);
         this.spaceships = new Planetary.SpaceshipCluster(this);
 
         this.planet.sprite.addChild(this.cityGroup);
         this.planet.sprite.addChild(this.platforms.group);
         this.planet.sprite.addChild(this.bullets.group);
+        this.planet.sprite.addChild(this.robots.group);
         this.planet.sprite.addChild(this.spaceships.group);
         this.planet.sprite.addChild(this.player.sprite);
 
@@ -653,6 +741,7 @@ Planetary.Game.prototype = {
         this.platforms.update();
         this.bullets.update();
         this.stars.update();
+        this.robots.update();
         this.spaceships.update();
         this.world.bringToTop(this.player.sprite);
     }
