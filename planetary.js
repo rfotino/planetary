@@ -6,6 +6,8 @@ Planetary.PLAYER_ANGULAR_ACCELERATION = 0.001;
 Planetary.PLANET_GRAVITY = -1;
 Planetary.PLAYER_MIN_SPEED = -5;
 Planetary.ROBOT_SPEED = 0.0025;
+Planetary.ROBOT_HEALTH = 20;
+Planetary.ROBOT_POINTS = 100;
 
 Planetary.Player = function(game) {
     this.game = game;
@@ -35,6 +37,8 @@ Planetary.Player = function(game) {
     this._currentWeaponIndex = 0;
     this.changeWeaponTo(this._currentWeaponIndex);
     this.strafing = false;
+
+    this.score = 0;
 
     this._updatePosition();
 };
@@ -300,12 +304,42 @@ Planetary.Bullet = function(game, owner, damage, position, angle, speed, directi
 
 Planetary.Bullet.prototype = {
     update: function() {
+        // Update position
         this.sprite.x += this.velocity.x;
         this.sprite.y += this.velocity.y;
+
+        // Check for bullet-robot collision
+        for (var i = 0; i < this.game.robots.robotArray.length; i++) {
+            var robot = this.game.robots.robotArray[i];
+            var halfHeight = robot.sprite.height / 2;
+            var halfAngle = Math.abs(robot.sprite.width) / (2 * robot.radius);
+            var minRadius = robot.radius - halfHeight;
+            var maxRadius = robot.radius + halfHeight
+            var minAngle = robot.angle - halfAngle;
+            var maxAngle = robot.angle + halfAngle;
+            var bulletRadius = new Phaser.Point(this.sprite.x, this.sprite.y).getMagnitude();
+            var bulletAngle = Math.atan2(this.sprite.x, -this.sprite.y);
+            bulletAngle = Phaser.Math.normalizeAngle(bulletAngle);
+            if (bulletRadius >= minRadius && bulletRadius <= maxRadius) {
+                var bulletAngle2 = bulletAngle - (2 * Math.PI);
+                var bulletAngle3 = bulletAngle + (2 * Math.PI);
+                if ((bulletAngle >= minAngle && bulletAngle <= maxAngle) ||
+                    (bulletAngle2 >= minAngle && bulletAngle2 <= maxAngle) ||
+                    (bulletAngle3 >= minAngle && bulletAngle3 <= maxAngle)) {
+                    robot.damage(this);
+                    this.sprite.destroy();
+                    this.alive = false;
+                    return;
+                }
+            }
+        }
+
+        // Kill if no lifespan left
         this._timeToLive--;
         if (this._timeToLive === 0) {
             this.sprite.destroy();
             this.alive = false;
+            return;
         }
     }
 };
@@ -432,8 +466,12 @@ Planetary.RobotCluster.prototype = {
         this.robotArray.push(robot);
     },
     update: function() {
-        for (var i = 0; i < this.robotArray.length; i++) {
-            this.robotArray[i].update();
+        for (var i = this.robotArray.length - 1; i >= 0; i--) {
+            if (!this.robotArray[i].alive) {
+                this.robotArray.splice(i, 1);
+            } else {
+                this.robotArray[i].update();
+            }
         }
     }
 };
@@ -457,6 +495,8 @@ Planetary.Robot = function(game, angle, radius) {
     this.sprite.addChild(this.arm);
 
     this.attacking = false;
+    this.health = Planetary.ROBOT_HEALTH;
+    this.alive = true;
 
     if (this.game.rnd.frac() < 0.5) {
         this.walkLeft();
@@ -466,6 +506,16 @@ Planetary.Robot = function(game, angle, radius) {
 };
 
 Planetary.Robot.prototype = {
+    damage: function(bullet) {
+        this.health -= bullet.damage;
+        this.sprite.alpha = ((this.health / Planetary.ROBOT_HEALTH) * 0.75) + 0.25;
+        if (this.health <= 0) {
+            this.game.player.score += Planetary.ROBOT_POINTS;
+            this.sprite.destroy();
+            this.arm.destroy();
+            this.alive = false;
+        }
+    },
     update: function() {
         var prevRadius = this.radius;
         var minRadius = this.game.planet.radius + (this.sprite.height / 2);
