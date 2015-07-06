@@ -870,6 +870,8 @@ Planetary.Game.prototype = {
         this.planet.sprite.addChild(this.spaceships.group);
         this.planet.sprite.addChild(this.player.sprite);
 
+        this.score = this.game.add.text(20, 20, 'Score: 0', { fill: '#fff' });
+
         this.game.scale.fullScreenScaleMode = Phaser.ScaleManager.RESIZE;
         this.game.input.onDown.add(function() { this.scale.startFullScreen(false); }, this);
     },
@@ -883,6 +885,7 @@ Planetary.Game.prototype = {
         this.stars.update();
         this.robots.update();
         this.spaceships.update();
+        this.score.text = 'Score: ' + this.player.score;
         this.world.bringToTop(this.player.sprite);
     }
 };
