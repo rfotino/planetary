@@ -340,8 +340,6 @@ Planetary.SpaceshipCluster.prototype = {
 Planetary.Spaceship = function(game, angle) {
     this.game = game;
     this.angle = angle;
-    this.startRadius = 1000;
-    this.radius = this.startRadius;
     this.sprite = this.game.add.sprite(0, 0, 'spaceship');
     this.sprite.anchor.setTo(0.5, 0.5);
     this.sprite.rotation = this.angle;
@@ -353,6 +351,13 @@ Planetary.Spaceship = function(game, angle) {
     this.launchCooldown = this.launchCooldownMax;
     this.launchNum = this.game.rnd.between(1, 5);
 
+    // Find the starting radius, far enough away that the
+    // spaceship is offscreen from any angle
+    this.startRadius = new Phaser.Point(
+        screen.width + this.sprite.width,
+        screen.height + this.sprite.height
+    ).getMagnitude() / 2;
+    this.radius = this.startRadius;
     // Find the distance at which we should hover
     // and shoot/launch robots
     this.stopRadius = this.game.planet.radius;
