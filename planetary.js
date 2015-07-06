@@ -450,7 +450,10 @@ Planetary.Robot = function(game, angle, radius) {
     this.sprite.anchor.setTo(0.5, 0.5);
     this.sprite.rotation = this.angle;
     this.sprite.animations.add('walk', [0, 1, 2, 3], 2, true);
-    this.sprite.animations.add('attack', [0, 4, 5, 6], 4, true);
+
+    this.arm = this.game.add.sprite(-8, -30, 'robotarm');
+    this.arm.animations.add('attack', [0, 1, 2, 3], 2, true);
+    this.sprite.addChild(this.arm);
 
     this.attacking = false;
 
@@ -482,6 +485,25 @@ Planetary.Robot.prototype = {
         this.sprite.x = this.radius * Math.sin(this.angle);
         this.sprite.y = this.radius * -Math.cos(this.angle);
         this.sprite.rotation = this.angle;
+
+        // Update arm offset
+        switch (this.sprite.frame) {
+        case 0:
+            this.arm.x = -8;
+            this.arm.y = -30;
+            break;
+        case 1:
+            this.arm.x = -7;
+            this.arm.y = -32;
+            break;
+        case 2:
+            this.arm.x = -6;
+            this.arm.y = -29;
+            break;
+        case 3:
+            this.arm.x = -7;
+            this.arm.y = -33;
+        }
     },
     walkLeft: function() {
         this.sprite.animations.play('walk');
@@ -496,10 +518,11 @@ Planetary.Robot.prototype = {
     stop: function() {
         this.attacking = false;
         this.sprite.animations.stop();
+        this.arm.animations.stop();
     },
     attack: function() {
         this.attacking = true;
-        this.sprite.animations.play('attack');
+        this.arm.animations.play('attack');
     }
 };
 
@@ -701,7 +724,8 @@ Planetary.Game.prototype = {
         this.load.spritesheet('city', 'assets/city.png', 56, 50);
         this.load.spritesheet('rifle', 'assets/rifle.png', 19, 7);
         this.load.spritesheet('spaceship', 'assets/spaceship.png', 100, 50);
-        this.load.spritesheet('robot', 'assets/robot.png', 52, 56);
+        this.load.spritesheet('robot', 'assets/robot.png', 30, 43);
+        this.load.spritesheet('robotarm', 'assets/robotarm.png', 41, 45);
     },
 
     create: function() {
