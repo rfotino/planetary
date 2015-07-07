@@ -8,6 +8,7 @@ Planetary.PLAYER_MIN_SPEED = -5;
 Planetary.ROBOT_SPEED = 0.0025;
 Planetary.ROBOT_HEALTH = 20;
 Planetary.ROBOT_POINTS = 100;
+Planetary.ROBOT_DAMAGE = 25;
 Planetary.SPACESHIP_HEALTH = 75;
 Planetary.SPACESHIP_POINTS = 750;
 Planetary.CITY_HEALTH = 1000;
@@ -532,7 +533,7 @@ Planetary.Robot = function(game, angle, radius) {
     this.arm.animations.add('attack', [0, 1, 2, 3], 2, true);
     this.sprite.addChild(this.arm);
 
-    this.attacking = false;
+    this.attacking = null;
     this.health = Planetary.ROBOT_HEALTH;
     this.alive = true;
 
@@ -598,6 +599,38 @@ Planetary.Robot.prototype = {
             }
         }
 
+        // Check if we should damage a city that we're attacking
+        if (this.attacking) {
+            if (this.attacking.alive) {
+                // Only damage on attack frame
+                var attackFrame = 3;
+                if (this.arm.frame === attackFrame &&
+                    this._prevArmFrame !== attackFrame) {
+                    this.attacking.damage(Planetary.ROBOT_DAMAGE);
+                }
+                this._prevArmFrame = this.arm.frame;
+            } else {
+                // City is dead, keep walking
+                this.stop();
+                if (this.direction === 'left') {
+                    this.walkLeft();
+                } else if (this.direction === 'right') {
+                    this.walkRight();
+                }
+            }
+        } else if (this.radius === minRadius) {
+            // Check if we are on top of a city and we should attack it
+            for (var i = 0; i < this.game.cities.cityArray.length; i++) {
+                var city = this.game.cities.cityArray[i];
+                var angularDistance = Math.PI - Math.abs(Math.abs(city.angle - this.angle) - Math.PI);
+                var halfCityAngularWidth = city.sprite.width / (2 * this.game.planet.radius);
+                if (angularDistance < halfCityAngularWidth) {
+                    this.stop();
+                    this.attack(city);
+                }
+            }
+        }
+
         // Set positions
         this.sprite.x = this.radius * Math.sin(this.angle);
         this.sprite.y = this.radius * -Math.cos(this.angle);
@@ -623,22 +656,26 @@ Planetary.Robot.prototype = {
         }
     },
     walkLeft: function() {
+        this.direction = 'left';
         this.sprite.animations.play('walk');
         this.sprite.scale.setTo(-1, 1);
         this.angularVelocity = -Planetary.ROBOT_SPEED;
     },
     walkRight: function() {
+        this.direction = 'right';
         this.sprite.animations.play('walk');
         this.sprite.scale.setTo(1, 1);
         this.angularVelocity = Planetary.ROBOT_SPEED;
     },
     stop: function() {
-        this.attacking = false;
+        this.attacking = null;
         this.sprite.animations.stop();
         this.arm.animations.stop();
+        this.sprite.frame = this.arm.frame = 0;
+        this.angularVelocity = 0;
     },
-    attack: function() {
-        this.attacking = true;
+    attack: function(city) {
+        this.attacking = city;
         this.arm.animations.play('attack');
     }
 };
