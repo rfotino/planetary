@@ -8,7 +8,8 @@ Planetary.PLAYER_MIN_SPEED = -5;
 Planetary.PISTOL_DAMAGE = 5;
 Planetary.RIFLE_DAMAGE = 2;
 Planetary.ROBOT_SPEED = 0.0025;
-Planetary.ROBOT_HEALTH = 25;
+Planetary.ROBOT_HEALTH = 20;
+Planetary.ROBOT_HEALTH_INCREASE = 0.5;
 Planetary.ROBOT_POINTS = 150;
 Planetary.ROBOT_DAMAGE = 50;
 Planetary.SPACESHIP_HEALTH = 75;
@@ -498,11 +499,13 @@ Planetary.RobotCluster = function(game) {
     this.game = game;
     this.group = this.game.add.group();
     this.robotArray = [];
+    this.startingHealth = Planetary.ROBOT_HEALTH;
 };
 
 Planetary.RobotCluster.prototype = {
     add: function(angle, radius) {
-        var robot = new Planetary.Robot(this.game, angle, radius);
+        var robot = new Planetary.Robot(this.game, angle, radius, this.startingHealth);
+        this.startingHealth += Planetary.ROBOT_HEALTH_INCREASE;
         this.group.add(robot.sprite);
         this.robotArray.push(robot);
     },
@@ -517,7 +520,7 @@ Planetary.RobotCluster.prototype = {
     }
 };
 
-Planetary.Robot = function(game, angle, radius) {
+Planetary.Robot = function(game, angle, radius, startingHealth) {
     this.game = game;
     this.angle = angle;
     this.angularVelocity = 0;
@@ -536,7 +539,11 @@ Planetary.Robot = function(game, angle, radius) {
     this.sprite.addChild(this.arm);
 
     this.attacking = null;
-    this.health = Planetary.ROBOT_HEALTH;
+    if (startingHealth === undefined) {
+        startingHealth = Planetary.ROBOT_HEALTH;
+    }
+    this.startingHealth = startingHealth;
+    this.health = startingHealth;
     this.alive = true;
 
     if (this.game.rnd.frac() < 0.5) {
@@ -549,11 +556,13 @@ Planetary.Robot = function(game, angle, radius) {
 Planetary.Robot.prototype = {
     damage: function(bullet) {
         this.health -= bullet.damage;
-        this.sprite.alpha = ((this.health / Planetary.ROBOT_HEALTH) * 0.75) + 0.25;
+        this.sprite.alpha = ((this.health / this.startingHealth) * 0.75) + 0.25;
         if (this.health <= 0) {
-            this.game.player.score += Planetary.ROBOT_POINTS;
+            // Scale the points for this robot so that as they get more starting health
+            // you get more points.
+            var points = Math.floor(Planetary.ROBOT_POINTS * (this.startingHealth / Planetary.ROBOT_HEALTH));
+            this.game.player.score += points;
             this.sprite.destroy();
-            this.arm.destroy();
             this.alive = false;
         }
     },
@@ -867,6 +876,7 @@ Planetary.Input = function(game) {
     this.cursors = this.game.input.keyboard.createCursorKeys();
     this.cursorUpArrowPrev = false;
     this.spacebar = this.game.input.keyboard.addKey(Phaser.Keyboard.SPACEBAR);
+    this.spacebarDownPrev = false;
     this.strafeKey = this.game.input.keyboard.addKey(Phaser.Keyboard.SHIFT);
     this.xKey = this.game.input.keyboard.addKey(Phaser.Keyboard.X);
     this.xKeyDownPrev = false;
@@ -876,43 +886,43 @@ Planetary.Input.prototype = {
     update: function() {
         // If game over, only check for space to restart
         if (this.game.gameOver) {
-            if (this.spacebar.isDown) {
+            if (this.spacebar.isDown && !this.spacebarDownPrev) {
                 // Restart the current game if they hit space
                 this.game.state.start(this.game.state.current);
             }
-            return;
-        }
-
-        // Check for left and right movement
-        if (this.cursors.left.isDown) {
-            this.game.player.moveLeft();
-        } else if (this.cursors.right.isDown) {
-            this.game.player.moveRight();
         } else {
-            this.game.player.moveClear();
-        }
-        // Check for jump
-        if (this.cursors.up.isDown && !this.cursorUpArrowPrev) {
-            this.game.player.jump();
+            // Check for left and right movement
+            if (this.cursors.left.isDown) {
+                this.game.player.moveLeft();
+            } else if (this.cursors.right.isDown) {
+                this.game.player.moveRight();
+            } else {
+                this.game.player.moveClear();
+            }
+            // Check for jump
+            if (this.cursors.up.isDown && !this.cursorUpArrowPrev) {
+                this.game.player.jump();
+            }
+            // Check for fall
+            if (this.cursors.down.isDown) {
+                this.game.player.fallStart();
+            } else {
+                this.game.player.fallStop();
+            }
+            // Check for shoot
+            if (this.spacebar.isDown) {
+                this.game.player.shoot();
+            }
+            // Check for swap weapon
+            if (this.xKey.isDown && !this.xKeyDownPrev) {
+                this.game.player.changeWeapon();
+            }
+            // Check for strafing
+            this.game.player.strafing = this.strafeKey.isDown;
         }
         this.cursorUpArrowPrev = this.cursors.up.isDown;
-        // Check for fall
-        if (this.cursors.down.isDown) {
-            this.game.player.fallStart();
-        } else {
-            this.game.player.fallStop();
-        }
-        // Check for shoot
-        if (this.spacebar.isDown) {
-            this.game.player.shoot();
-        }
-        // Check for swap weapon
-        if (this.xKey.isDown && !this.xKeyDownPrev) {
-            this.game.player.changeWeapon();
-        }
+        this.spacebarDownPrev = this.spacebar.isDown;
         this.xKeyDownPrev = this.xKey.isDown;
-        // Check for strafing
-        this.game.player.strafing = this.strafeKey.isDown;
     }
 };
 
