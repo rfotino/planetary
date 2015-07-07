@@ -5,10 +5,12 @@ Planetary.PLAYER_JUMP = 12.5;
 Planetary.PLAYER_ANGULAR_ACCELERATION = 0.001;
 Planetary.PLANET_GRAVITY = -1;
 Planetary.PLAYER_MIN_SPEED = -5;
+Planetary.PISTOL_DAMAGE = 5;
+Planetary.RIFLE_DAMAGE = 2;
 Planetary.ROBOT_SPEED = 0.0025;
-Planetary.ROBOT_HEALTH = 20;
-Planetary.ROBOT_POINTS = 100;
-Planetary.ROBOT_DAMAGE = 25;
+Planetary.ROBOT_HEALTH = 25;
+Planetary.ROBOT_POINTS = 150;
+Planetary.ROBOT_DAMAGE = 50;
 Planetary.SPACESHIP_HEALTH = 75;
 Planetary.SPACESHIP_POINTS = 750;
 Planetary.CITY_HEALTH = 1000;
@@ -230,7 +232,7 @@ Planetary.Pistol = function(game, player) {
     this.sprite.animations.add('shoot', [1, 0], 15, false);
     this.cooldownMax = 15;
     this.cooldown = 0;
-    this.damage = 5;
+    this.damage = Planetary.PISTOL_DAMAGE;
     this.bulletSpeed = 10;
 };
 Planetary.Pistol.prototype = Object.create(Planetary.Weapon.prototype);
@@ -251,7 +253,7 @@ Planetary.Rifle = function(game, player) {
     this.sprite.animations.add('shoot', [1, 0], 30, false);
     this.cooldownMax = 5;
     this.cooldown = 0;
-    this.damage = 2;
+    this.damage = Planetary.RIFLE_DAMAGE;
     this.bulletSpeed = 10;
 };
 Planetary.Rifle.prototype = Object.create(Planetary.Weapon.prototype);
@@ -872,6 +874,15 @@ Planetary.Input = function(game) {
 
 Planetary.Input.prototype = {
     update: function() {
+        // If game over, only check for space to restart
+        if (this.game.gameOver) {
+            if (this.spacebar.isDown) {
+                // Restart the current game if they hit space
+                this.game.state.start(this.game.state.current);
+            }
+            return;
+        }
+
         // Check for left and right movement
         if (this.cursors.left.isDown) {
             this.game.player.moveLeft();
@@ -921,6 +932,8 @@ Planetary.Game = function(width, height, container) {
 
 Planetary.Game.prototype = {
     preload: function() {
+        this.gameOver = false;
+
         this.load.image('planet', 'assets/planet.png');
         this.load.image('star', 'assets/star.png');
         this.load.image('bullet', 'assets/bullet.png');
@@ -951,14 +964,22 @@ Planetary.Game.prototype = {
         this.robots = new Planetary.RobotCluster(this);
         this.spaceships = new Planetary.SpaceshipCluster(this);
 
+        this.score = this.game.add.text(20, 20, 'Score: 0',
+                                        {
+                                            font: 'Arial',
+                                            fontSize: 32,
+                                            fontWeight: 'bold',
+                                            fill: '#fff',
+                                            stroke: '#000',
+                                            strokeThickness: 2
+                                        });
+
         this.planet.sprite.addChild(this.cities.group);
         this.planet.sprite.addChild(this.platforms.group);
         this.planet.sprite.addChild(this.bullets.group);
         this.planet.sprite.addChild(this.robots.group);
         this.planet.sprite.addChild(this.spaceships.group);
         this.planet.sprite.addChild(this.player.sprite);
-
-        this.score = this.game.add.text(20, 20, 'Score: 0', { fill: '#fff' });
 
         this.game.scale.fullScreenScaleMode = Phaser.ScaleManager.RESIZE;
         this.game.input.onDown.add(function() { this.scale.startFullScreen(false); }, this);
@@ -974,7 +995,36 @@ Planetary.Game.prototype = {
         this.robots.update();
         this.spaceships.update();
         this.cities.update();
-        this.score.text = 'Score: ' + this.player.score;
         this.world.bringToTop(this.player.sprite);
+
+        // Check for endgame condition
+        if (!this.gameOver) {
+            if (this.cities.cityArray.length === 0) {
+                var fontOptions = {
+                    fill: '#fff',
+                    stroke: '#000',
+                    strokeThickness: 2,
+                    font: 'Arial',
+                    fontSize: 50,
+                    fontWeight: 'bold'
+                };
+                this.gameOver = true;
+                this.player.sprite.destroy();
+                var gameOverText = this.game.add.text(0,
+                                                      -(this.planet.radius + 50),
+                                                      'Game Over!',
+                                                      fontOptions);
+                var continueText = this.game.add.text(0,
+                                                      this.planet.radius + 50,
+                                                      'Press SPACE to Continue',
+                                                      fontOptions);
+                gameOverText.anchor.setTo(0.5, 0.5);
+                continueText.anchor.setTo(0.5, 0.5);
+                this.planet.sprite.addChild(gameOverText);
+                this.planet.sprite.addChild(continueText);
+            } else {
+                this.score.text = 'Score: ' + this.player.score;
+            }
+        }
     }
 };
