@@ -10,6 +10,7 @@ Planetary.ROBOT_HEALTH = 20;
 Planetary.ROBOT_POINTS = 100;
 Planetary.SPACESHIP_HEALTH = 75;
 Planetary.SPACESHIP_POINTS = 750;
+Planetary.CITY_HEALTH = 1000;
 
 Planetary.Player = function(game) {
     this.game = game;
@@ -758,6 +759,27 @@ Planetary.StarGroup.prototype = {
     }
 };
 
+Planetary.CityCluster = function(game) {
+    this.game = game;
+    this.group = this.game.add.group();
+    this.cityArray = [];
+};
+
+Planetary.CityCluster.prototype = {
+    add: function(angle) {
+        var city = new Planetary.City(this.game, angle);
+        this.group.add(city.sprite);
+        this.cityArray.push(city);
+    },
+    update: function() {
+        for (var i = this.cityArray.length - 1; i >= 0; i--) {
+            if (!this.cityArray[i].alive) {
+                this.cityArray.splice(i, 1);
+            }
+        }
+    }
+};
+
 Planetary.City = function(game, angle) {
     this.game = game;
     this.angle = angle;
@@ -766,9 +788,39 @@ Planetary.City = function(game, angle) {
     var radius = (planetImage.height / 2) + (cityImage.height / 2) - 2;
     var posX = radius * Math.sin(this.angle);
     var posY = radius * -Math.cos(this.angle);
-    this.sprite = this.game.cityGroup.create(posX, posY, 'city');
+    this.sprite = this.game.add.sprite(posX, posY, 'city');
     this.sprite.anchor.setTo(0.5, 0.5);
     this.sprite.rotation = this.angle;
+    this.sprite.animations.add('shielded', [0], 1, true);
+    this.sprite.animations.add('cracked', [1], 1, true);
+    this.sprite.animations.add('broken', [2], 1, true);
+    this.sprite.animations.add('smoking', [3, 4], 3, true);
+    this.sprite.animations.add('flaming', [5, 6], 5, true);
+
+    this.sprite.animations.play('shielded');
+    this.health = Planetary.CITY_HEALTH;
+    this.alive = true;
+};
+
+Planetary.City.prototype = {
+    damage: function(amount) {
+        this.health -= amount;
+        var percentHealth = this.health / Planetary.CITY_HEALTH;
+        if (percentHealth > 0.8) {
+            this.sprite.animations.play('shielded');
+        } else if (percentHealth > 0.6) {
+            this.sprite.animations.play('cracked');
+        } else if (percentHealth > 0.4) {
+            this.sprite.animations.play('broken');
+        } else if (percentHealth > 0.2) {
+            this.sprite.animations.play('smoking');
+        } else if (percentHealth > 0) {
+            this.sprite.animations.play('flaming');
+        } else {
+            this.sprite.destroy();
+            this.alive = false;
+        }
+    }
 };
 
 Planetary.Input = function(game) {
@@ -846,11 +898,10 @@ Planetary.Game.prototype = {
 
     create: function() {
         this.stars = new Planetary.StarGroup(this, 250 / (600 * 800));
-        this.cityGroup = this.add.group();
-        this.cities = [];
+        this.cities = new Planetary.CityCluster(this);
         for (var i = 0; i < 3; i++) {
             var cityAngle = Phaser.Math.normalizeAngle(2 * Math.PI * (i / 3) + 0.5);
-            this.cities.push(new Planetary.City(this, cityAngle));
+            this.cities.add(cityAngle);
         }
         this.planet = new Planetary.Planet(this);
         this.player = new Planetary.Player(this);
@@ -863,7 +914,7 @@ Planetary.Game.prototype = {
         this.robots = new Planetary.RobotCluster(this);
         this.spaceships = new Planetary.SpaceshipCluster(this);
 
-        this.planet.sprite.addChild(this.cityGroup);
+        this.planet.sprite.addChild(this.cities.group);
         this.planet.sprite.addChild(this.platforms.group);
         this.planet.sprite.addChild(this.bullets.group);
         this.planet.sprite.addChild(this.robots.group);
@@ -885,6 +936,7 @@ Planetary.Game.prototype = {
         this.stars.update();
         this.robots.update();
         this.spaceships.update();
+        this.cities.update();
         this.score.text = 'Score: ' + this.player.score;
         this.world.bringToTop(this.player.sprite);
     }
